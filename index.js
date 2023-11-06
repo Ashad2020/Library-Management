@@ -9,7 +9,12 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // middlewares
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -44,22 +49,41 @@ async function run() {
         if (err) {
           return res.status(401).send("You are unauthorized");
         }
-        console.log(decoded);
+
+        req.user = decoded;
         next();
       });
     };
 
-    app.get("/api/v1/categories", gateman, async (req, res) => {
+    app.get("/api/v1/categories", async (req, res) => {
       const cursor = CategoriesCollection.find();
       const result = await cursor.toArray();
       res.send(result);
     });
+    app.get("/api/v1/allbooks", async (req, res) => {
+      const cursor = BooksCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+    // app.get("/api/v1/categories", gateman, async (req, res) => {
+    //   const userEmail = req.query.email;
+    //   const tokenEmail = req.user.email;
 
-    app.post("/api/v1/addbook", async (req, res) => {
-      console.log(req.body);
+    //   if (userEmail !== tokenEmail) {
+    //     // const result = await cursor.toArray();
+    //     res.status(403).send("Forbidden");
+    //   }
+    //   const query = {};
+    //   if (userEmail) {
+    //     query.email = userEmail;
+    //   }
+    //   const result = await CategoriesCollection.find(query).toArray();
+    //   res.send(result);
+    // });
+
+    app.post("/api/v1/addbook", gateman, async (req, res) => {
       const newBook = req.body;
       const result = await BooksCollection.insertOne(newBook);
-
       res.send(result);
     });
 
