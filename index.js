@@ -65,6 +65,22 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+    app.get("/api/v1/allbooks/:id", async (req, res) => {
+      const id = req.params;
+      const queryCategory = { _id: new ObjectId(id) };
+      const category = await CategoriesCollection.findOne(queryCategory);
+      console.log(category);
+      const query = { category: category.name };
+      const cursor = BooksCollection.find(query);
+      const books = await cursor.toArray();
+      res.send(books);
+    });
+    app.get("/api/v1/book/:id", async (req, res) => {
+      const id = req.params;
+      const query = { _id: new ObjectId(id) };
+      const result = await BooksCollection.findOne(query);
+      res.send(result);
+    });
     // app.get("/api/v1/categories", gateman, async (req, res) => {
     //   const userEmail = req.query.email;
     //   const tokenEmail = req.user.email;
