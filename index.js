@@ -37,6 +37,7 @@ async function run() {
     const database = client.db("Library");
     const CategoriesCollection = database.collection("Categories");
     const BooksCollection = database.collection("AllBooks");
+    const BorrowCollection = database.collection("BorrowBooks");
 
     const gateman = (req, res, next) => {
       const { token } = req.cookies;
@@ -69,7 +70,6 @@ async function run() {
       const id = req.params;
       const queryCategory = { _id: new ObjectId(id) };
       const category = await CategoriesCollection.findOne(queryCategory);
-      console.log(category);
       const query = { category: category.name };
       const cursor = BooksCollection.find(query);
       const books = await cursor.toArray();
@@ -79,6 +79,7 @@ async function run() {
       const id = req.params;
       const query = { _id: new ObjectId(id) };
       const result = await BooksCollection.findOne(query);
+      // console.log(result);
       res.send(result);
     });
     // app.get("/api/v1/categories", gateman, async (req, res) => {
@@ -101,6 +102,53 @@ async function run() {
       const newBook = req.body;
       const result = await BooksCollection.insertOne(newBook);
       res.send(result);
+    });
+    app.post("/api/v1/borrowbook", gateman, async (req, res) => {
+      const borrowBook = req.body;
+      // console.log(borrowBook);
+      const queryForBorrow = {
+        id: borrowBook.id,
+      };
+      const borrowedQueryBook = await BorrowCollection.findOne(queryForBorrow);
+      console.log(borrowedQueryBook);
+      const query = {
+        _id: new ObjectId(borrowBook.id),
+      };
+      const queryBook = await BooksCollection.findOne(query);
+      const { photoUrl, bookName, authorName, category, description, rating } =
+        queryBook;
+      let quantity = Number(queryBook.quantity);
+      if (borrowedQueryBook?.id == queryBook?._id) {
+        return res.send({ msg: "You can not add this book" });
+      }
+      if (quantity > 0) {
+        const mergedObject = {
+          ...borrowBook,
+          photoUrl,
+          bookName,
+          authorName,
+          category,
+          description,
+          rating,
+        };
+        quantity = quantity - 1;
+        const filter = { _id: queryBook._id };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            quantity: quantity,
+          },
+        };
+        const updatedQueryBook = await BooksCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+        // console.log(updatedQueryBook);
+        const result = await BorrowCollection.insertOne(mergedObject);
+        res.send(result);
+      }
+      // res.send(result);
     });
 
     app.post("/api/v1/auth/access-token", (req, res) => {
