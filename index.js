@@ -61,14 +61,18 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-    app.get("/api/v1/allbooks", async (req, res) => {
-      const cursor = BooksCollection.find();
+    app.get("/api/v1/allbooks", gateman, async (req, res) => {
+      const query = {};
+      const quantity = req.query.quantity;
+      if (quantity) {
+        query.quantity = { $gt: 0 };
+      }
+      const cursor = BooksCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
     });
     app.get("/api/v1/borrowedbooks/:email", async (req, res) => {
       const email = req.params.email;
-      console.log(email);
       const query = { email: email };
       const cursor = BorrowCollection.find(query);
       const result = await cursor.toArray();
@@ -112,20 +116,24 @@ async function run() {
       const result = await BooksCollection.insertOne(newBook);
       res.send(result);
     });
-    app.post("/api/v1/borrowbook", gateman, async (req, res) => {
+    app.post("/api/v1/borrowbook", async (req, res) => {
       const borrowBook = req.body;
-      const user = req.user;
+      console.log(borrowBook);
+      const { email } = borrowBook;
+      console.log(email);
+      // const user = req.user;
 
       const queryForBorrow = {
         id: borrowBook.id,
       };
       const cursor = BorrowCollection.find(queryForBorrow);
       const borrowedQueryBook = await cursor.toArray();
-
+      console.log(borrowedQueryBook);
       const query = {
         _id: new ObjectId(borrowBook.id),
       };
       const queryBook = await BooksCollection.findOne(query);
+      console.log("Book from BooksCollection", queryBook);
       const { photoUrl, bookName, authorName, category, description, rating } =
         queryBook;
       let quantity = Number(queryBook.quantity);
@@ -133,15 +141,17 @@ async function run() {
       const queryBookId = queryBook?._id.toString();
       let count = 0;
       borrowedQueryBook?.map((book) => {
-        if (user?.email === book.email) {
+        if (email === book.email) {
           count++;
         }
       });
+      console.log(count);
+      console.log(borrowBook.id === queryBookId);
 
       if (count > 0 && borrowBook.id === queryBookId) {
         return res.send({ msg: "You can not add this book" });
       }
-      if (quantity > 0 && user.email !== borrowedQueryBook?.email) {
+      if (quantity > 0 && borrowedQueryBook.length === 0) {
         const mergedObject = {
           ...borrowBook,
           photoUrl,
@@ -166,10 +176,37 @@ async function run() {
         );
 
         const result = await BorrowCollection.insertOne(mergedObject);
-        res.send(result);
+        return res.send(result);
+      }
+      if (quantity > 0 && email !== borrowedQueryBook?.email) {
+        const mergedObject = {
+          ...borrowBook,
+          photoUrl,
+          bookName,
+          authorName,
+          category,
+          description,
+          rating,
+        };
+        quantity = quantity - 1;
+        const filter = { _id: queryBook._id };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            quantity: quantity,
+          },
+        };
+        const updatedQueryBook = await BooksCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+
+        const result = await BorrowCollection.insertOne(mergedObject);
+        return res.send(result);
       }
     });
-    app.patch("/api/v1/updatebook/:id", async (req, res) => {
+    app.patch("/api/v1/updatebook/:id", gateman, async (req, res) => {
       const updateBookData = req.body;
       const {
         photoUrl,
