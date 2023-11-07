@@ -41,7 +41,7 @@ async function run() {
 
     const gateman = (req, res, next) => {
       const { token } = req.cookies;
-      console.log(token);
+      // console.log(token);
       if (!token) {
         return res.status(401).send("You are unauthorized");
       }
@@ -64,6 +64,15 @@ async function run() {
     app.get("/api/v1/allbooks", async (req, res) => {
       const cursor = BooksCollection.find();
       const result = await cursor.toArray();
+      res.send(result);
+    });
+    app.get("/api/v1/borrowedbooks/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
+      const query = { email: email };
+      const cursor = BorrowCollection.find(query);
+      const result = await cursor.toArray();
+
       res.send(result);
     });
     app.get("/api/v1/allbooks/:id", async (req, res) => {
@@ -105,12 +114,15 @@ async function run() {
     });
     app.post("/api/v1/borrowbook", gateman, async (req, res) => {
       const borrowBook = req.body;
+      const user = req.user;
+      console.log(user.email);
       // console.log(borrowBook);
       const queryForBorrow = {
         id: borrowBook.id,
       };
       const borrowedQueryBook = await BorrowCollection.findOne(queryForBorrow);
-      console.log(borrowedQueryBook);
+      // console.log(borrowedQueryBook);
+
       const query = {
         _id: new ObjectId(borrowBook.id),
       };
@@ -118,7 +130,11 @@ async function run() {
       const { photoUrl, bookName, authorName, category, description, rating } =
         queryBook;
       let quantity = Number(queryBook.quantity);
-      if (borrowedQueryBook?.id == queryBook?._id) {
+
+      if (
+        user.email === borrowedQueryBook?.email &&
+        borrowedQueryBook?.id === queryBook?._id
+      ) {
         return res.send({ msg: "You can not add this book" });
       }
       if (quantity > 0) {
@@ -168,6 +184,42 @@ async function run() {
           { expiresIn: 60 * 60 }
         )
         .send({ success: true });
+    });
+    app.delete(`/api/v1/deletebook/:id`, async (req, res) => {
+      const idFromParams = req.params.id;
+      // console.log(idFromParams);
+      const queryForReturn = { _id: new ObjectId(idFromParams) };
+      const borrowedQueryBook = await BorrowCollection.findOne(queryForReturn);
+      // console.log(borrowedQueryBook);
+      const { id } = borrowedQueryBook;
+      const queryForIncreaseQuantity = { _id: new ObjectId(id) };
+      const BookForIncreaseQuantity = await BooksCollection.findOne(
+        queryForIncreaseQuantity
+      );
+      // console.log(BookForIncreaseQuantity);
+      if (BookForIncreaseQuantity) {
+        // const query = { id: BookForIncreaseQuantity._id };
+        const result = await BorrowCollection.deleteOne(queryForReturn);
+        // console.log(result);
+      }
+      if (BookForIncreaseQuantity) {
+        let { quantity } = BookForIncreaseQuantity;
+        quantity = quantity + 1;
+        const filter = { _id: BookForIncreaseQuantity._id };
+        const options = { upsert: true };
+        const updateDoc = {
+          $set: {
+            quantity: quantity,
+          },
+        };
+        const updatedQueryBook = await BooksCollection.updateOne(
+          filter,
+          updateDoc,
+          options
+        );
+
+        res.send({ deleteAndIncrease: "result" });
+      }
     });
 
     // Send a ping to confirm a successful connection
