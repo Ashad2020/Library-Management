@@ -166,6 +166,39 @@ async function run() {
       }
       // res.send(result);
     });
+    app.patch("/api/v1/updatebook/:id", async (req, res) => {
+      const updateBookData = req.body;
+      const {
+        photoUrl,
+        bookName,
+        authorName,
+        category,
+        description,
+        rating,
+        quantity,
+      } = updateBookData;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          photoUrl,
+          bookName,
+          authorName,
+          category,
+          description,
+          rating,
+          quantity,
+        },
+      };
+      const updatedBook = await BooksCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+
+      res.send(updatedBook);
+    });
 
     app.post("/api/v1/auth/access-token", (req, res) => {
       const user = req.body;
