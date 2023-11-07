@@ -115,13 +115,12 @@ async function run() {
     app.post("/api/v1/borrowbook", gateman, async (req, res) => {
       const borrowBook = req.body;
       const user = req.user;
-      console.log(user.email);
-      // console.log(borrowBook);
+
       const queryForBorrow = {
         id: borrowBook.id,
       };
-      const borrowedQueryBook = await BorrowCollection.findOne(queryForBorrow);
-      // console.log(borrowedQueryBook);
+      const cursor = BorrowCollection.find(queryForBorrow);
+      const borrowedQueryBook = await cursor.toArray();
 
       const query = {
         _id: new ObjectId(borrowBook.id),
@@ -131,13 +130,18 @@ async function run() {
         queryBook;
       let quantity = Number(queryBook.quantity);
 
-      if (
-        user.email === borrowedQueryBook?.email &&
-        borrowedQueryBook?.id === queryBook?._id
-      ) {
+      const queryBookId = queryBook?._id.toString();
+      let count = 0;
+      borrowedQueryBook?.map((book) => {
+        if (user?.email === book.email) {
+          count++;
+        }
+      });
+
+      if (count > 0 && borrowBook.id === queryBookId) {
         return res.send({ msg: "You can not add this book" });
       }
-      if (quantity > 0) {
+      if (quantity > 0 && user.email !== borrowedQueryBook?.email) {
         const mergedObject = {
           ...borrowBook,
           photoUrl,
@@ -160,11 +164,10 @@ async function run() {
           updateDoc,
           options
         );
-        // console.log(updatedQueryBook);
+
         const result = await BorrowCollection.insertOne(mergedObject);
         res.send(result);
       }
-      // res.send(result);
     });
     app.patch("/api/v1/updatebook/:id", async (req, res) => {
       const updateBookData = req.body;
