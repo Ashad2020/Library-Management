@@ -15,6 +15,10 @@ app.use(
     credentials: true,
   })
 );
+// app.use({
+//   origin: "http://localhost:5173",
+//   credentials: true,
+// });
 app.use(express.json());
 app.use(cookieParser());
 
@@ -50,10 +54,18 @@ async function run() {
         if (err) {
           return res.status(401).send("You are unauthorized");
         }
-
+        // console.log(decoded);
         req.user = decoded;
         next();
       });
+    };
+
+    const checkUserRole = (req, res, next) => {
+      if (req.user && req.user.role === "admin") {
+        next();
+      } else {
+        res.status(403).send("Access denied. You need the required role.");
+      }
     };
 
     app.get("/api/v1/categories", async (req, res) => {
@@ -61,7 +73,7 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-    app.get("/api/v1/allbooks", gateman, async (req, res) => {
+    app.get("/api/v1/allbooks", gateman, checkUserRole, async (req, res) => {
       const query = {};
       const quantity = req.query.quantity;
       if (quantity) {
@@ -111,16 +123,16 @@ async function run() {
     //   res.send(result);
     // });
 
-    app.post("/api/v1/addbook", gateman, async (req, res) => {
+    app.post("/api/v1/addbook", gateman, checkUserRole, async (req, res) => {
       const newBook = req.body;
       const result = await BooksCollection.insertOne(newBook);
       res.send(result);
     });
     app.post("/api/v1/borrowbook", async (req, res) => {
       const borrowBook = req.body;
-      console.log(borrowBook);
+      // console.log(borrowBook);
       const { email } = borrowBook;
-      console.log(email);
+      // console.log(email);
       // const user = req.user;
 
       const queryForBorrow = {
@@ -128,12 +140,12 @@ async function run() {
       };
       const cursor = BorrowCollection.find(queryForBorrow);
       const borrowedQueryBook = await cursor.toArray();
-      console.log(borrowedQueryBook);
+      // console.log(borrowedQueryBook);
       const query = {
         _id: new ObjectId(borrowBook.id),
       };
       const queryBook = await BooksCollection.findOne(query);
-      console.log("Book from BooksCollection", queryBook);
+      // console.log("Book from BooksCollection", queryBook);
       const { photoUrl, bookName, authorName, category, description, rating } =
         queryBook;
       let quantity = Number(queryBook.quantity);
@@ -145,8 +157,8 @@ async function run() {
           count++;
         }
       });
-      console.log(count);
-      console.log(borrowBook.id === queryBookId);
+      // console.log(count);
+      // console.log(borrowBook.id === queryBookId);
 
       if (count > 0 && borrowBook.id === queryBookId) {
         return res.send({ msg: "You can not add this book" });
@@ -251,8 +263,9 @@ async function run() {
           token,
           {
             httpOnly: true,
-            secure: true,
-            sameSite: "none",
+            secure: false,
+            // secure: true,
+            // sameSite: "none",
           },
           { expiresIn: 60 * 60 }
         )
