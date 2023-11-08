@@ -9,12 +9,27 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // middlewares
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+
+const corsOptions = {
+  // origin: '*',
+  origin: ["https://library-management-a18d4.web.app", "http://localhost:5173"],
+  credentials: true,
+  optionSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
+
+// app.use(
+//   cors({
+//     origin: ["https://library-management-a18d4.web.app/"],
+//     credentials: true,
+//   })
+// );
+// app.use(
+//   cors({
+//     origin: "https://library-management-a18d4.web.app/",
+//     credentials: true,
+//   })
+// );
 // app.use({
 //   origin: "http://localhost:5173",
 //   credentials: true,
@@ -255,21 +270,28 @@ async function run() {
     app.post("/api/v1/auth/access-token", (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.JWT_SECRET);
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+        })
+        .send({ success: true });
       // console.log(token);
       // res.send(token);
-      res
-        .cookie(
-          "token",
-          token,
-          {
-            httpOnly: true,
-            secure: false,
-            // secure: true,
-            // sameSite: "none",
-          },
-          { expiresIn: 60 * 60 }
-        )
-        .send({ success: true });
+      // res
+      //   .cookie(
+      //     "token",
+      //     token,
+      //     {
+      //       httpOnly: true,
+      //       secure: false,
+      //       // secure: true,
+      //       // sameSite: "none",
+      //     },
+      //     { expiresIn: 60 * 60 }
+      //   )
+      //   .send({ success: true });
     });
     app.delete(`/api/v1/deletebook/:id`, async (req, res) => {
       const idFromParams = req.params.id;
