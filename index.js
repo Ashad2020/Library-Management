@@ -61,7 +61,7 @@ async function run() {
     };
 
     const checkUserRole = (req, res, next) => {
-      if (req.user && req.user.role === "admin") {
+      if (req.user && req.user.role === "librarian") {
         next();
       } else {
         res.status(403).send("Access denied. You need the required role.");
